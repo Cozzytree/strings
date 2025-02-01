@@ -1,4 +1,4 @@
-import { canvasConfig } from "canvas/config";
+import Canvas from "canvas/canvas";
 import { useMode } from "canvas/store/mode";
 import { Mode } from "canvas/types";
 import {
@@ -9,6 +9,7 @@ import {
   MousePointer2Icon,
   PencilIcon,
   Square,
+  TypeOutlineIcon,
 } from "lucide-react";
 
 const modes: { label: Mode; I: LucideIcon }[] = [
@@ -17,16 +18,28 @@ const modes: { label: Mode; I: LucideIcon }[] = [
   { label: "rect", I: Square },
   { label: "ellipse", I: Circle },
   { label: "draw", I: PencilIcon },
+  { label: "text", I: TypeOutlineIcon },
   { label: "line", I: ArrowUpRight },
 ];
 
-const ChangeMode = () => {
+type props = {
+  fabrifRef: React.MutableRefObject<Canvas | null>;
+};
+
+const ChangeMode = ({ fabrifRef }: props) => {
   const { mode, setMode } = useMode();
   return (
     <div className="border-secondary border flex items-center rounded-sm">
       {modes.map((m, i) => (
         <button
           onClick={() => {
+            if (fabrifRef.current) {
+              if (m.label === "draw") {
+                fabrifRef.current.setDrawBrush();
+              } else {
+                fabrifRef.current.canvas.isDrawingMode = false
+              }
+            }
             setMode(m.label);
           }}
           className={`${

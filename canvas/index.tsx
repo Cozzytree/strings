@@ -45,7 +45,7 @@ const Canvasdraw = () => {
   return (
     <>
       <div className="fixed top-5 w-full flex justify-center pointer-events-auto z-[999999]">
-        <ChangeMode />
+        <ChangeMode fabrifRef={fabricRef} />
       </div>
       <canvas ref={canvasRef}></canvas>
     </>
