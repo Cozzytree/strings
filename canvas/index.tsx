@@ -4,9 +4,14 @@ import { DefaultRect } from "./defaultprop";
 import Canvas from "./canvas";
 import ChangeMode from "./components/changemode";
 import { useMode } from "./store/mode";
+import { useActiveObject } from "./store/active_obj";
+import ObjectControls from "./components/obj_controls";
+import BackgroundOption from "./components/background_option";
 
 const Canvasdraw = () => {
   const { mode, setMode } = useMode();
+  const { setActiveObj, obj } = useActiveObject();
+
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fabricRef = useRef<Canvas | null>(null);
 
@@ -27,6 +32,9 @@ const Canvasdraw = () => {
       callback: () => {
         setMode("default");
       },
+      setActiveObj(v) {
+        setActiveObj(v);
+      },
     });
     fabricRef.current.init();
 
@@ -45,7 +53,14 @@ const Canvasdraw = () => {
   return (
     <>
       <div className="fixed top-5 w-full flex justify-center pointer-events-auto z-[999999]">
-        <ChangeMode fabrifRef={fabricRef} />
+        <ChangeMode fabricRef={fabricRef} />
+      </div>
+      <div className="fixed left-2 top-[10%] hidden md:block z-[999999]">
+        {obj.length > 0 && (
+          <>
+            <ObjectControls fabricRef={fabricRef} />
+          </>
+        )}
       </div>
       <canvas ref={canvasRef}></canvas>
     </>

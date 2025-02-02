@@ -7,12 +7,14 @@ import {
   FabricObjectProps,
   FabricText,
   IText,
+  ITextProps,
   Line,
   Rect,
+  RectProps,
 } from "fabric";
 
 class DefaultRect extends Rect {
-  constructor(obj: Partial<FabricObjectProps>) {
+  constructor(obj: Partial<RectProps>) {
     super({
       top: 20,
       left: 20,
@@ -25,8 +27,9 @@ class DefaultRect extends Rect {
       cornerColor: "#5090ff",
       cornerStrokeColor: "#5090ff",
       cornerSize: 10,
-      padding: 2,
-      transparentCorners: false,
+      padding: 4,
+      opacity: 1,
+      // strokeDashArray: [10, 10],
       ...obj,
     });
     this.customControl();
@@ -70,7 +73,7 @@ class DefaultEllipse extends Ellipse {
       cornerColor: "#5090ff",
       cornerStrokeColor: "#5090ff",
       cornerSize: 10,
-      padding: 2,
+      padding: 4,
       transparentCorners: false,
       ...obj,
     });
@@ -78,13 +81,15 @@ class DefaultEllipse extends Ellipse {
 }
 
 class DefaultText extends IText {
-  constructor(text: string, obj: Partial<FabricText>) {
+  constructor(text: string, obj: Partial<ITextProps>) {
     super(text, {
-      cornerColor: "#5090ff",
+      fill: "transparent",
       cornerStyle: "circle",
+      cornerColor: "#5090ff",
       cornerStrokeColor: "#5090ff",
       cornerSize: 10,
-      padding: 2,
+      padding: 4,
+      transparentCorners: false,
       ...obj,
     });
   }
