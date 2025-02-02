@@ -1,7 +1,6 @@
 import { Slider } from "~/components/ui/slider";
 import OptionLayout from "./option_layout";
 import { useActiveObject } from "canvas/store/active_obj";
-import { useState } from "react";
 
 type props = {
   handleOpacity: (v: number) => void;

@@ -5,6 +5,8 @@ import BackgroundOption from "./background_option";
 import StrokeStyleOption from "./strokeStyle_option";
 import StrokeWidthOption from "./stroke_width_option";
 import OpacityOption from "./opacity_option";
+import GroupOption from "./group_option";
+import { ActiveSelection, Group } from "fabric";
 
 type props = {
   fabricRef: React.MutableRefObject<Canvas | null>;
@@ -87,6 +89,37 @@ const ObjectControls = ({ fabricRef }: props) => {
     fabricRef.current.canvas.renderAll();
   };
 
+  const handleGroup = (type: "group" | "ungroup") => {
+    const fabric = fabricRef.current;
+    if (!fabric) return;
+    const activeObject = fabric.canvas.getActiveObject();
+
+    if (type === "group") {
+      if (fabric.canvas.getActiveObject()?.type !== "activeselection") {
+        return;
+      }
+      // @ts-expect-error i am not sure if there is a new method to remove the selected currently getting a warning of not in type
+      const group = new Group(activeObject?.removeAll(), {
+        cornerColor: "",
+        cornerStrokeColor: "#2080ff",
+        cornerDashArray: [2, 2],
+      });
+      fabric.canvas.add(group);
+      fabric.canvas.setActiveObject(group);
+      fabric.canvas.requestRenderAll();
+    } else if (type === "ungroup") {
+      if (activeObject?.type !== "group") return;
+      fabric.canvas.remove(activeObject);
+
+      // @ts-ignore removeAll not in tyep
+      const selected = new ActiveSelection(activeObject?.removeAll(), {
+        canvas: fabric.canvas,
+      });
+      fabric.canvas.setActiveObject(selected);
+      fabric.canvas.requestRenderAll();
+    }
+  };
+
   return (
     <div className="h-[700px] w-[14em] rounded-lg bg-secondary border">
       <StrokeOption handleStroke={handleStroke} />
@@ -102,6 +135,18 @@ const ObjectControls = ({ fabricRef }: props) => {
       <div className="w-ful border border-foreground/10 my-2" />
 
       <OpacityOption handleOpacity={handleOpacity} />
+
+      <GroupOption
+        handleGroup={handleGroup}
+        isGrouped={() => {
+          if (!fabricRef.current) return false;
+          if (fabricRef.current.canvas.getActiveObject()?.type === "group") {
+            return true;
+          }
+
+          return false;
+        }}
+      />
     </div>
   );
 };
