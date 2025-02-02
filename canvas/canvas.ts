@@ -6,19 +6,31 @@ interface canvasInterface {
   canvas: fabric.Canvas;
   mode: Mode;
   callback: () => void;
+  setActiveObj: (v: fabric.FabricObject[] | []) => void;
 }
 
 class Canvas {
   mousedownPoint = { x: 0, y: 0 };
   newShape: fabric.Object | null = null;
   callback: () => void;
+  setActiveObj: (v: fabric.FabricObject[] | []) => void;
   canvas: fabric.Canvas;
   mode: Mode;
 
-  constructor({ canvas, mode, callback }: canvasInterface) {
+  constructor({ canvas, mode, callback, setActiveObj }: canvasInterface) {
     this.canvas = canvas;
     this.mode = mode;
     this.callback = callback;
+    this.setActiveObj = setActiveObj;
+  }
+
+  _setActive() {
+    const active = this.canvas.getActiveObjects();
+    if (active.length) {
+      this.setActiveObj(active);
+    } else {
+      this.setActiveObj([]);
+    }
   }
 
   add(shape: fabric.Object) {
@@ -31,7 +43,6 @@ class Canvas {
   }
 
   setDrawBrush() {
-    
     this.canvas.isDrawingMode = true;
 
     const brush = new fabric.PencilBrush(this.canvas);
@@ -56,6 +67,7 @@ class Canvas {
               left: x,
               width: 0,
               height: 0,
+              strokeDashOffset : 2
             });
             break;
           case "ellipse":
@@ -84,6 +96,7 @@ class Canvas {
               left: x,
               fill: "white",
               stroke: "white",
+              fontFamily: "Arial",
             });
             text.enterEditing();
             this.newShape = text;
@@ -92,6 +105,8 @@ class Canvas {
         if (this.newShape) this.add(this.newShape);
         return;
       }
+
+      this._setActive();
     });
   }
 
@@ -137,6 +152,7 @@ class Canvas {
 
       this.newShape = null;
       this.callback();
+      this._setActive();
     });
   }
 

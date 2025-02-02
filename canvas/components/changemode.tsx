@@ -23,21 +23,21 @@ const modes: { label: Mode; I: LucideIcon }[] = [
 ];
 
 type props = {
-  fabrifRef: React.MutableRefObject<Canvas | null>;
+  fabricRef: React.MutableRefObject<Canvas | null>;
 };
 
-const ChangeMode = ({ fabrifRef }: props) => {
+const ChangeMode = ({ fabricRef }: props) => {
   const { mode, setMode } = useMode();
   return (
     <div className="border-secondary border flex items-center rounded-sm">
       {modes.map((m, i) => (
         <button
           onClick={() => {
-            if (fabrifRef.current) {
+            if (fabricRef.current) {
               if (m.label === "draw") {
-                fabrifRef.current.setDrawBrush();
+                fabricRef.current.setDrawBrush();
               } else {
-                fabrifRef.current.canvas.isDrawingMode = false
+                fabricRef.current.canvas.isDrawingMode = false
               }
             }
             setMode(m.label);
