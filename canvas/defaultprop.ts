@@ -1,14 +1,14 @@
 import {
   Canvas,
-  Circle,
   Control,
   Ellipse,
   EllipseProps,
   FabricObjectProps,
-  FabricText,
+  Group,
   IText,
   ITextProps,
   Line,
+  Polyline,
   Rect,
   RectProps,
 } from "fabric";
@@ -22,6 +22,7 @@ class DefaultRect extends Rect {
       strokeWidth: 4,
       rx: 5,
       ry: 5,
+      // centeredScaling: true,
       fill: "transparent",
       cornerStyle: "circle",
       cornerColor: "#5090ff",
@@ -29,10 +30,11 @@ class DefaultRect extends Rect {
       cornerSize: 10,
       padding: 4,
       opacity: 1,
+      transparentCorners: false,
       // strokeDashArray: [10, 10],
       ...obj,
     });
-    this.customControl();
+    // this.customControl();
   }
 
   customControl() {
@@ -90,6 +92,7 @@ class DefaultText extends IText {
       cornerSize: 10,
       padding: 4,
       transparentCorners: false,
+      textAlign: "left",
       ...obj,
     });
   }
@@ -102,17 +105,76 @@ class DraggableLine extends Line {
   ) {
     super(points, options);
     this.hasControls = true;
-    this.lockScalingX = true;
-    this.lockScalingY = true;
+    this.padding = 6;
+    this.stroke = "white"; // Set stroke color
+    this.strokeWidth = 2; // Set stroke width
+    this.selectable = true; // Make the line selectable
+    this.hasControls = true; // Enable controls for resizing
+    this.transparentCorners = false; // Make the corner points visible
+    this.cornerStyle = "circle";
+    this.cornerColor = "#5090ff";
+    this.cornerStrokeColor = "#5090ff";
+    this.cornerSize = 10;
+    this.opacity = 1;
+
     this._createControls();
   }
 
   _createControls() {
     this.controls.start = new Control({
-      x: -0.5,
-      y: -0.5,
+      render: (ctx) => {
+        const start = this.get("aCoords");
+        ctx.save();
+        // Apply any transformations if necessary, such as scaling or rotation
+        ctx.fillStyle = this.stroke ? (this.stroke as string) : "white";
+
+        // Draw the arc (circle) at the start point
+        ctx.beginPath();
+        ctx.arc(start.tl.x, start.tl.y, 5, 0, Math.PI * 2, false);
+        ctx.fill();
+        ctx.closePath();
+        ctx.restore();
+      },
+    });
+    this.controls.end = new Control({
+      render: (ctx) => {
+        const end = this.get("aCoords");
+        ctx.save();
+        // Apply any transformations if necessary, such as scaling or rotation
+        ctx.fillStyle = this.stroke ? (this.stroke as string) : "white";
+
+        // Draw the arc (circle) at the end point
+        ctx.beginPath();
+        ctx.arc(end.br.x, end.br.y, 5, 0, Math.PI * 2, false);
+        ctx.fill();
+        ctx.closePath();
+        ctx.restore();
+      },
     });
   }
 }
 
-export { DefaultRect, DefaultEllipse, DefaultText };
+class DefaultPolygon extends Polyline {
+  constructor(
+    points: { x: number; y: number }[],
+    props: Partial<FabricObjectProps>
+  ) {
+    super(points, {
+      ...props,
+      cornerStyle: "circle",
+      cornerColor: "#5090ff",
+      cornerStrokeColor: "#5090ff",
+      cornerSize: 10,
+      padding: 4,
+      transparentCorners: false,
+    });
+  }
+}
+
+export {
+  DefaultRect,
+  DefaultPolygon,
+  DefaultEllipse,
+  DefaultText,
+  DraggableLine,
+};

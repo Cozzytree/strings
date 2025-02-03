@@ -1,6 +1,7 @@
 import { basicColors } from "canvas/config";
 import { useActiveObject } from "canvas/store/active_obj";
 import ColorOptions from "./color_options";
+import { useState } from "react";
 
 type props = {
   handleColor: (v: string) => void;
@@ -10,8 +11,9 @@ const colors = basicColors.map((c) => c + "50");
 
 const BackgroundOption = ({ handleColor }: props) => {
   const { obj } = useActiveObject();
-  const background = obj.length === 1 ? obj[0].get("fill") : "";
-  console.log(background);
+  const [background, setBackground] = useState(
+    obj.length === 1 ? obj[0].get("fill") : ""
+  )
 
   return (
     <div className="flex flex-col gap-2 px-2">
@@ -32,6 +34,7 @@ const BackgroundOption = ({ handleColor }: props) => {
         <ColorOptions
           fn={(v) => {
             handleColor(v);
+            setBackground(v)
           }}
           color={background}
         />

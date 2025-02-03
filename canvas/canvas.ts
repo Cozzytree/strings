@@ -1,21 +1,28 @@
 import * as fabric from "fabric";
 import { Mode } from "./types";
-import { DefaultEllipse, DefaultRect, DefaultText } from "./defaultprop";
+import {
+  DefaultRect,
+  DefaultText,
+  DraggableLine,
+  DefaultEllipse,
+} from "./defaultprop";
 
 interface canvasInterface {
-  canvas: fabric.Canvas;
   mode: Mode;
-  callback: () => void;
+  canvas: fabric.Canvas;
   setActiveObj: (v: fabric.FabricObject[] | []) => void;
+  callback: (v: { mode: Mode; objs: fabric.FabricObject[] | [] }) => void;
 }
 
 class Canvas {
   mousedownPoint = { x: 0, y: 0 };
   newShape: fabric.Object | null = null;
-  callback: () => void;
+  callback: (v: { mode: Mode; objs: fabric.FabricObject[] | [] }) => void;
   setActiveObj: (v: fabric.FabricObject[] | []) => void;
   canvas: fabric.Canvas;
   mode: Mode;
+  isDragging = false;
+  isObjectsLocked = false;
 
   constructor({ canvas, mode, callback, setActiveObj }: canvasInterface) {
     this.canvas = canvas;
@@ -55,8 +62,25 @@ class Canvas {
   mousedown() {
     this.canvas.on("mouse:down", (e) => {
       const { x, y } = e.scenePoint;
-
       this.mousedownPoint = { x, y };
+
+      if (this.mode === "free") {
+        this.isDragging = true;
+        this.isObjectsLocked = true;
+        this.canvas.selection = false;
+        this.canvas.getObjects().forEach((obj) => {
+          obj.set({ selectable: false }); // Disable object selection
+        });
+
+        this.callback({ mode: "free", objs: [] });
+        return;
+      }
+
+      this.isObjectsLocked = false;
+
+      if (!this.canvas.selection) {
+        this.canvas.selection = true;
+      }
 
       if (this.mode !== "default" && this.mode !== "draw") {
         this.canvas.selection = false;
@@ -67,7 +91,7 @@ class Canvas {
               left: x,
               width: 0,
               height: 0,
-              strokeDashOffset : 2
+              strokeDashOffset: 2,
             });
             break;
           case "ellipse":
@@ -81,14 +105,7 @@ class Canvas {
             });
             break;
           case "line":
-            this.newShape = new fabric.Line([x, y, x, y], {
-              stroke: "white", // Set stroke color
-              strokeWidth: 2, // Set stroke width
-              selectable: true, // Make the line selectable
-              hasControls: true, // Enable controls for resizing
-              cornerSize: 12, // Customize control point size
-              transparentCorners: false, // Make the corner points visible
-            });
+            this.newShape = new DraggableLine([x, y, x, y], {});
             break;
           case "text":
             let text = new DefaultText("", {
@@ -112,9 +129,16 @@ class Canvas {
 
   mouseMove() {
     this.canvas.on("mouse:move", (e) => {
+      const { x, y } = e.scenePoint;
+      if (this.isDragging) {
+        let vpt = this.canvas.viewportTransform;
+        vpt[4] += x - this.mousedownPoint.x;
+        vpt[5] += y - this.mousedownPoint.y;
+        this.canvas.renderAll();
+      }
+
       if (this.newShape) {
         // const { x, y } = e.viewportPoint;
-        const { x, y } = e.scenePoint;
 
         if (this.mode === "rect") {
           this.newShape.set({
@@ -142,17 +166,35 @@ class Canvas {
 
   mouseUp() {
     this.canvas.on("mouse:up", (e) => {
+      this.isDragging = false;
+
+      if (this.mode === "free") {
+        return;
+      }
+
+      if (!this.isObjectsLocked) {
+        this.unlockObjects();
+      }
+
       if (this.mode === "draw") return;
       this.canvas.selection = true;
       if (this.newShape) {
         // Select the newly created shape
         this.canvas.setActiveObject(this.newShape);
         this.canvas.renderAll();
+        this.mode = "default";
       }
 
       this.newShape = null;
-      this.callback();
+      this.callback({ mode: "default", objs: this.canvas.getObjects() });
       this._setActive();
+    });
+  }
+
+  unlockObjects() {
+    /* unlock objects */
+    this.canvas.getObjects().forEach((obj) => {
+      obj.set({ selectable: true }); // Disable object selection
     });
   }
 
@@ -164,32 +206,72 @@ class Canvas {
 
   scroll() {
     this.canvas.on("mouse:wheel", (e) => {
-      console.log(e);
       const delta = e.e.deltaY; // Get the wheel delta (positive for scroll down, negative for scroll up)
 
-      // Get the current transform (viewport transform)
-      const currentTransform = this.canvas.viewportTransform;
-
-      // Set the pan amount (adjust this value to control the panning speed)
-      const panAmount = 20;
-
-      if (delta > 0) {
-        // Scroll down (move the canvas up)
-        currentTransform[5] -= panAmount; // Change the vertical offset (y-axis)
+      if (e.e.ctrlKey) {
+        let zoom = this.canvas.getZoom();
+        zoom *= 0.999 ** delta;
+        if (zoom > 20) zoom = 20;
+        if (zoom < 0.01) zoom = 0.01;
+        this.canvas.setZoom(zoom);
       } else {
-        // Scroll up (move the canvas down)
-        currentTransform[5] += panAmount; // Change the vertical offset (y-axis)
+        // Get the current transform (viewport transform)
+        const currentTransform = this.canvas.viewportTransform;
+
+        // Set the pan amount (adjust this value to control the panning speed)
+        const panAmount = 20;
+
+        if (delta > 0) {
+          // Scroll down (move the canvas up)
+          currentTransform[5] -= panAmount; // Change the vertical offset (y-axis)
+        } else {
+          // Scroll up (move the canvas down)
+          currentTransform[5] += panAmount; // Change the vertical offset (y-axis)
+        }
+
+        // Apply the new transform
+        this.canvas.viewportTransform = currentTransform;
+
+        // Prevent the default scroll behavior (e.g., page scrolling)
+        this.canvas.renderAll();
       }
-
-      // Apply the new transform
-      this.canvas.viewportTransform = currentTransform;
-
-      // Prevent the default scroll behavior (e.g., page scrolling)
-      this.canvas.renderAll();
       e.e.preventDefault();
       e.e.stopPropagation();
     });
   }
+
+  deleteObject() {}
+
+  duplicateShape() {
+    const actives = this.canvas.getActiveObjects();
+    if (!actives.length) return;
+    actives.forEach((a) => {
+      a.clone()
+        .then((v) => {
+          v.set({ top: v.top + 20, left: v.left + 10 });
+          this.canvas.setActiveObject(v);
+          this.canvas.add(v);
+          this.callback({ mode: this.mode, objs: [v] });
+
+          a.set({ active: "false" });
+        })
+        .catch((err) => {
+          throw new Error(err);
+        });
+    });
+    this.canvas.requestRenderAll();
+  }
+
+  documentKeyDown(e: KeyboardEvent) {
+    if (e.ctrlKey) {
+      if (e.key === "d") {
+        e.preventDefault();
+        this.duplicateShape();
+      }
+    }
+  }
+
+  dblClick() {}
 
   init() {
     this.mousedown();
@@ -197,12 +279,14 @@ class Canvas {
     this.mouseUp();
     this.scroll();
     window.addEventListener("resize", this.windowResize.bind(this));
+    document.addEventListener("keydown", this.documentKeyDown.bind(this));
   }
 
   clear() {
     this.canvas.removeListeners();
     this.canvas.dispose();
     window.removeEventListener("resize", this.windowResize);
+    document.removeEventListener("keydown", this.documentKeyDown.bind(this));
   }
 }
 
