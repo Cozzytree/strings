@@ -6,7 +6,7 @@ import StrokeStyleOption from "./strokeStyle_option";
 import StrokeWidthOption from "./stroke_width_option";
 import OpacityOption from "./opacity_option";
 import GroupOption from "./group_option";
-import { ActiveSelection, Group } from "fabric";
+import { ActiveSelection, FabricObject, Group } from "fabric";
 import LayerOption from "./layer_option";
 import TextOption from "./text_option";
 import ActionOption from "./action_option";
@@ -17,34 +17,65 @@ type props = {
 
 const ObjectControls = ({ fabricRef }: props) => {
   const { obj, setActiveObj } = useActiveObject();
+
   const handleStroke = (v: string) => {
     if (!fabricRef.current || !obj) return;
+
+    if (obj.length === 1) {
+      const o = obj[0];
+      if (o instanceof ActiveSelection) {
+        o.forEachObject((ob) => {
+          ob.set({ stroke: v });
+        });
+        fabricRef.current.canvas.requestRenderAll();
+        return;
+      }
+    }
+    
     for (let i = 0; i < obj.length; i++) {
       const o = obj[i];
-      o.set({ stroke: v });
-      o.setCoords(); // Update coordinates
-
-      // Mark the object as dirty (only re-render this object)
-      o.dirty = true;
+      if (o.type === "group") {
+        // @ts-expect-error
+        const objs: FabricObject[] = o?._objects;
+        if (objs.length) {
+          objs.forEach((ob: FabricObject) => {
+            ob.set({ stroke: v });
+            // ob.setCoords()
+          });
+        }
+      } else {
+        o.set({ stroke: v });
+        o.setCoords(); // Update coordinates
+        // o.setCoords()
+        // Mark the object as dirty (only re-render this object)
+      }
 
       // Force re-render only this object
     }
-    fabricRef.current.canvas.renderAll();
+    fabricRef.current.canvas.requestRenderAll();
   };
 
   const handleColor = (c: string) => {
     if (!fabricRef.current || !obj) return;
     for (let i = 0; i < obj.length; i++) {
       const o = obj[i];
-      o.set({ fill: c });
-      o.setCoords(); // Update coordinates
 
-      // Mark the object as dirty (only re-render this object)
-      o.dirty = true;
-
-      // Force re-render only this object
+      if (o.type === "group") {
+        // @ts-expect-error
+        const objs: FabricObject[] = o._objects;
+        if (objs.length) {
+          objs.forEach((ob) => {
+            ob.set({ fill: c });
+            // ob.setCoords()
+          });
+        }
+      } else {
+        o.set({ fill: c });
+        o.setCoords(); // Update coordinates
+      }
     }
-    fabricRef.current.canvas.renderAll();
+    // Force re-render only this object
+    fabricRef.current.canvas.requestRenderAll();
   };
 
   const handleStrokeStyle = (v: [number, number]) => {
@@ -52,10 +83,9 @@ const ObjectControls = ({ fabricRef }: props) => {
     for (let i = 0; i < obj.length; i++) {
       const o = obj[i];
       o.set({ strokeDashArray: v });
-      o.setCoords(); // Update coordinates
 
       // Mark the object as dirty (only re-render this object)
-      o.dirty = true;
+      // o.dirty = true;
 
       // Force re-render only this object
     }
@@ -68,13 +98,8 @@ const ObjectControls = ({ fabricRef }: props) => {
       const o = obj[i];
       o.set({ strokeWidth: w });
       o.setCoords(); // Update coordinates
-
-      // Mark the object as dirty (only re-render this object)
-      o.dirty = true;
-
-      // Force re-render only this object
     }
-    fabricRef.current.canvas.renderAll();
+    fabricRef.current.canvas.requestRenderAll();
   };
 
   const handleOpacity = (v: number) => {
@@ -83,13 +108,8 @@ const ObjectControls = ({ fabricRef }: props) => {
       const o = obj[i];
       o.set({ opacity: v });
       o.setCoords(); // Update coordinates
-
-      // Mark the object as dirty (only re-render this object)
-      o.dirty = true;
-
-      // Force re-render only this object
     }
-    fabricRef.current.canvas.renderAll();
+    fabricRef.current.canvas.requestRenderAll();
   };
 
   const handleGroup = (type: "group" | "ungroup") => {
@@ -142,24 +162,13 @@ const ObjectControls = ({ fabricRef }: props) => {
     } else if (where === "back") {
       fabric.canvas.sendObjectToBack(active);
     }
-    fabric.canvas.renderAll();
+    fabric.canvas.requestRenderAll();
   };
 
   const handleRemoveObj = () => {
     if (!fabricRef.current) return;
 
-    const canvas = fabricRef.current.canvas;
-    const objs = canvas.getActiveObjects();
-
-    if (!objs || objs.length === 0) return;
-
-    objs.forEach((obj) => {
-      canvas.remove(obj);
-    });
-
-    // Optionally, re-render the canvas after removing the objects
-    canvas.renderAll();
-    setActiveObj([]);
+    fabricRef.current.deleteObject();
   };
 
   const handleFontFamily = (f: string) => {
@@ -179,6 +188,7 @@ const ObjectControls = ({ fabricRef }: props) => {
     obj[0].dirty = true;
     fabricRef.current.canvas.requestRenderAll();
   };
+
   const handleTextAlign = (v: "left" | "center" | "right") => {
     if (obj.length > 1 || !fabricRef.current) return;
     if (obj[0].type !== "i-text") return;

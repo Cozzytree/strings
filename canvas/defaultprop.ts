@@ -1,10 +1,8 @@
 import {
-  Canvas,
   Control,
   Ellipse,
   EllipseProps,
   FabricObjectProps,
-  Group,
   IText,
   ITextProps,
   Line,
@@ -85,14 +83,16 @@ class DefaultEllipse extends Ellipse {
 class DefaultText extends IText {
   constructor(text: string, obj: Partial<ITextProps>) {
     super(text, {
+      padding: 4,
+      fontSize: 15,
+      cornerSize: 10,
+      fontWeight: 300,
+      textAlign: "left",
       fill: "transparent",
       cornerStyle: "circle",
       cornerColor: "#5090ff",
-      cornerStrokeColor: "#5090ff",
-      cornerSize: 10,
-      padding: 4,
       transparentCorners: false,
-      textAlign: "left",
+      cornerStrokeColor: "#5090ff",
       ...obj,
     });
   }

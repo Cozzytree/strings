@@ -23,6 +23,8 @@ class Canvas {
   mode: Mode;
   isDragging = false;
   isObjectsLocked = false;
+  selector: fabric.ActiveSelection | null = null;
+  copiedObjects?: fabric.FabricObject = undefined;
 
   constructor({ canvas, mode, callback, setActiveObj }: canvasInterface) {
     this.canvas = canvas;
@@ -62,6 +64,7 @@ class Canvas {
   mousedown() {
     this.canvas.on("mouse:down", (e) => {
       const { x, y } = e.scenePoint;
+
       this.mousedownPoint = { x, y };
 
       if (this.mode === "free") {
@@ -124,6 +127,7 @@ class Canvas {
       }
 
       this._setActive();
+      // this.canvas.requestRenderAll();
     });
   }
 
@@ -134,7 +138,7 @@ class Canvas {
         let vpt = this.canvas.viewportTransform;
         vpt[4] += x - this.mousedownPoint.x;
         vpt[5] += y - this.mousedownPoint.y;
-        this.canvas.renderAll();
+        this.canvas.requestRenderAll();
       }
 
       if (this.newShape) {
@@ -240,33 +244,79 @@ class Canvas {
     });
   }
 
-  deleteObject() {}
+  deleteObject() {
+    const canvas = this.canvas;
+    const objs = canvas.getActiveObjects();
 
-  duplicateShape() {
-    const actives = this.canvas.getActiveObjects();
-    if (!actives.length) return;
-    actives.forEach((a) => {
-      a.clone()
-        .then((v) => {
-          v.set({ top: v.top + 20, left: v.left + 10 });
-          this.canvas.setActiveObject(v);
-          this.canvas.add(v);
-          this.callback({ mode: this.mode, objs: [v] });
+    if (!objs || objs.length === 0) return;
 
-          a.set({ active: "false" });
-        })
-        .catch((err) => {
-          throw new Error(err);
-        });
+    objs.forEach((obj) => {
+      canvas.remove(obj);
     });
+
+    canvas.discardActiveObject();
+    canvas.requestRenderAll();
+    this.callback({ mode: this.mode, objs: [] });
+  }
+
+  async copyObjects() {
+    const ac = this.canvas.getActiveObject();
+    const clone = await ac?.clone();
+    return clone;
+  }
+
+  async pasteObjects(copies?: fabric.FabricObject) {
+    if (!copies) return;
+    const clonedObjs = await copies.clone();
+    this.canvas.discardActiveObject();
+
+    clonedObjs.set({
+      left: clonedObjs.left + 10,
+      top: clonedObjs.top + 10,
+    });
+    if (clonedObjs instanceof fabric.ActiveSelection) {
+      clonedObjs.canvas = this.canvas;
+      clonedObjs.forEachObject((o) => {
+        this.canvas.add(o);
+      });
+      clonedObjs.setCoords();
+    } else {
+      this.canvas.add(clonedObjs);
+    }
+
+    this.canvas.setActiveObject(clonedObjs);
     this.canvas.requestRenderAll();
   }
 
-  documentKeyDown(e: KeyboardEvent) {
+  async duplicateShape() {
+    const objs = await this.copyObjects();
+    this.pasteObjects(objs);
+  }
+
+  async documentKeyDown(e: KeyboardEvent) {
     if (e.ctrlKey) {
       if (e.key === "d") {
         e.preventDefault();
         this.duplicateShape();
+      } else if (e.key === "a") {
+        e.preventDefault();
+
+        const s = new fabric.ActiveSelection(this.canvas.getObjects(), {
+          canvas: this.canvas,
+          cornerColor: "#5090af",
+          cornerStyle: "circle",
+          cornerSize: 10,
+          padding: 3,
+          transparentCorners: false,
+        });
+
+        this.canvas.setActiveObject(s);
+        this.canvas.requestRenderAll();
+        this.callback({ mode: this.mode, objs: [s] });
+      } else if (e.key === "c") {
+        this.copiedObjects = await this.copyObjects();
+      } else if (e.key === "v") {
+        this.pasteObjects(this.copiedObjects);
       }
     }
   }

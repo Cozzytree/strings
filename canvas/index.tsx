@@ -12,9 +12,11 @@ import { useActiveObject } from "./store/active_obj";
 import { useCanvasStore } from "./store/canvas_config_store";
 import { Mode } from "./types";
 import { DefaultPolygon } from "./defaultprop";
+import { useTheme } from "remix-themes";
 
 const Canvasdraw = () => {
   const { mode, setMode } = useMode();
+  const [theme] = useTheme();
 
   const { setActiveObj, obj } = useActiveObject();
   const { backgroundColor } = useCanvasStore();
@@ -29,6 +31,9 @@ const Canvasdraw = () => {
       height: window.innerHeight,
       backgroundColor: localStorage.getItem("canvas-bg") || backgroundColor,
       preserveObjectStacking: true,
+      selectionColor: "#20202020",
+      selectionBorderColor: theme === "dark" ? "#ffffff80" : "#202020",
+      selectionLineWidth: 2,
     });
 
     // c.add(new fabric.Polyline([
@@ -44,20 +49,24 @@ const Canvasdraw = () => {
     //   left: 100,
     //   top: 100,
     // }))
-    c.add(new DefaultPolygon(
-      [
-        { x: 100, y: 50 },   // top point
-        { x: 140, y: 85 },   // right-upper point
-        { x: 120, y: 130 },  // right-lower point
-        { x: 80, y: 130 },   // left-lower point
-        { x: 60, y: 85 },    // left-upper point
-        { x: 100, y: 50 },   // top point
-      ], {
-      stroke: "white",
-      strokeWidth: 3,
-      fill: "#202020",
-      centeredScaling: true
-    }))
+    c.add(
+      new DefaultPolygon(
+        [
+          { x: 100, y: 50 }, // top point
+          { x: 140, y: 85 }, // right-upper point
+          { x: 120, y: 130 }, // right-lower point
+          { x: 80, y: 130 }, // left-lower point
+          { x: 60, y: 85 }, // left-upper point
+          { x: 100, y: 50 }, // top point
+        ],
+        {
+          stroke: "white",
+          strokeWidth: 3,
+          fill: "#202020",
+          centeredScaling: true,
+        }
+      )
+    );
     c.add(
       new fabric.Polygon(
         [
@@ -95,7 +104,7 @@ const Canvasdraw = () => {
         fabricRef.current.clear();
       }
     };
-  }, []);
+  }, [theme]);
 
   const handleChangeMode = (m: Mode) => {
     if (!fabricRef.current) return;
