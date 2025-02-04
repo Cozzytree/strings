@@ -1,11 +1,7 @@
 import { useActiveObject } from "canvas/store/active_obj";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuTrigger,
-} from "~/components/ui/dropdown-menu";
 import { cn } from "~/lib/utils";
 import ColorOptions from "./color_options";
+import { useState } from "react";
 
 const colors = ["#101010", "#ef4040", "#20ff50", "#2050ef", "#9a9a10"];
 
@@ -15,7 +11,9 @@ type props = {
 
 const StrokeOption = ({ handleStroke }: props) => {
   const { obj } = useActiveObject();
-  const stroke = obj.length === 1 ? obj[0].get("stroke") : "";
+  const [stroke, setStroke] = useState(
+    obj.length === 1 ? obj[0].get("stroke") : ""
+  )
 
   return (
     <div className="flex flex-col gap-2 px-2">
@@ -36,6 +34,7 @@ const StrokeOption = ({ handleStroke }: props) => {
         <ColorOptions
           fn={(v) => {
             handleStroke(v);
+            setStroke(v)
           }}
           color={stroke}
         />

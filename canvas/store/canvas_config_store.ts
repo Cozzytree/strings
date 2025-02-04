@@ -8,8 +8,11 @@ interface canvasInterface {
 
 const useCanvasStore = create<canvasInterface>((set) => {
   return {
-    backgroundColor: "",
-    handleBackgroundColor: (v) => set({ backgroundColor: v }),
+    backgroundColor: "#202020",
+    handleBackgroundColor: (v) => {
+      localStorage.setItem("canvas-bg", v)
+      set({ backgroundColor: v })
+    },
   };
 });
 

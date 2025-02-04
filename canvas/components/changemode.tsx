@@ -11,6 +11,7 @@ import {
   Square,
   TypeOutlineIcon,
 } from "lucide-react";
+import { Button } from "~/components/ui/button";
 
 const modes: { label: Mode; I: LucideIcon }[] = [
   { label: "free", I: Hand },
@@ -23,21 +24,30 @@ const modes: { label: Mode; I: LucideIcon }[] = [
 ];
 
 type props = {
+  handleMode: (m: Mode) => void;
   fabricRef: React.MutableRefObject<Canvas | null>;
 };
 
-const ChangeMode = ({ fabricRef }: props) => {
+const ChangeMode = ({ fabricRef, handleMode }: props) => {
   const { mode, setMode } = useMode();
   return (
-    <div className="border-secondary border flex items-center rounded-sm">
+    <div className="bg-secondary border-foreground/10 border flex items-center rounded-sm">
       {modes.map((m, i) => (
-        <button
+        <Button
+          variant={"outline"}
+          size={"sm"}
           onClick={() => {
+            handleMode(m.label);
             if (fabricRef.current) {
               if (m.label === "draw") {
                 fabricRef.current.setDrawBrush();
               } else {
-                fabricRef.current.canvas.isDrawingMode = false
+                fabricRef.current.canvas.isDrawingMode = false;
+              }
+
+              if (fabricRef.current.isObjectsLocked) {
+                fabricRef.current.isObjectsLocked = false;
+                fabricRef.current.unlockObjects();
               }
             }
             setMode(m.label);
@@ -45,12 +55,12 @@ const ChangeMode = ({ fabricRef }: props) => {
           className={`${
             m.label === mode
               ? "bg-foreground text-background rounded-md"
-              : "hover:bg-accent"
+              : "hover:bg-accent bg-foreground/5"
           } transition-colors duration-200 px-[0.4em]`}
           key={i}
         >
           <m.I className="w-4 cursor-pointer" />
-        </button>
+        </Button>
       ))}
     </div>
   );

@@ -26,13 +26,14 @@ const ColorOptions = ({ color, fn }: props) => {
       <DropdownMenuContent
         side="right"
         sideOffset={20}
-        className="space-y-2 bg-background p-2"
+        className="space-y-2 p-4 bg-secondary"
       >
         <div className="">
           <h6 className="text-sm font-bold">colors</h6>
           <div className="grid grid-cols-5 gap-2">
             {colors.map((c) => (
               <button
+                key={c}
                 onClick={() =>
                   fn(
                     currentColorAlpha === "ff"
@@ -56,16 +57,21 @@ const ColorOptions = ({ color, fn }: props) => {
 
         <div>
           <h6 className="text-sm font-bold">Aplha</h6>
-          <div className="w-full gap-2 grid grid-cols-4">
+          <div className="w-full gap-2 flex">
             {[0.1, 0.25, 0.5, 0.75, 1].map((v) => (
-              <button
-                onClick={() => {
-                  setCurrentColorAlpha(v as alphas);
-                }}
-                className="w-full h-[2em] relative rounded-sm border border-foreground/20"
-              >
-                <span className="text-xs absolute bottom-0 left-[3%]">{v}</span>
-              </button>
+              <div className="relative w-[1.8em] h-[1.8em]" key={v}>
+                <button
+                  key={v}
+                  style={{ background: color, opacity: v }}
+                  onClick={() => {
+                    setCurrentColorAlpha(v as alphas);
+                  }}
+                  className={`w-full h-[2em] relative rounded-sm border border-foreground/20`}
+                >
+                </button>
+                <span
+                  className="pointer-events-none text-xs absolute bottom-0 left-[3%] mix-blend-difference font-bold">{v}</span>
+              </div>
             ))}
           </div>
         </div>
