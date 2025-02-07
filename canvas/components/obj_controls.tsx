@@ -1,15 +1,17 @@
 import Canvas from "canvas/canvas";
-import { useActiveObject } from "canvas/store/active_obj";
 import StrokeOption from "./stroke_option";
 import BackgroundOption from "./background_option";
 import StrokeStyleOption from "./strokeStyle_option";
 import StrokeWidthOption from "./stroke_width_option";
 import OpacityOption from "./opacity_option";
 import GroupOption from "./group_option";
-import { ActiveSelection, FabricObject, Group } from "fabric";
 import LayerOption from "./layer_option";
 import TextOption from "./text_option";
 import ActionOption from "./action_option";
+
+import { useActiveObject } from "canvas/store/active_obj";
+import { ActiveSelection, FabricObject, Group } from "fabric";
+
 
 type props = {
   fabricRef: React.MutableRefObject<Canvas | null>;
@@ -31,11 +33,11 @@ const ObjectControls = ({ fabricRef }: props) => {
         return;
       }
     }
-    
+
     for (let i = 0; i < obj.length; i++) {
       const o = obj[i];
       if (o.type === "group") {
-        // @ts-expect-error
+        // @ts-expect-error i am not sure about other methods to get object from gropu
         const objs: FabricObject[] = o?._objects;
         if (objs.length) {
           objs.forEach((ob: FabricObject) => {
@@ -60,16 +62,12 @@ const ObjectControls = ({ fabricRef }: props) => {
     for (let i = 0; i < obj.length; i++) {
       const o = obj[i];
 
-      if (o.type === "group") {
-        // @ts-expect-error
-        const objs: FabricObject[] = o._objects;
-        if (objs.length) {
-          objs.forEach((ob) => {
-            ob.set({ fill: c });
-            // ob.setCoords()
-          });
-        }
-      } else {
+      if (o instanceof Group) {
+        o.forEachObject((o) => {
+          o.set({ fill: c });
+        })
+      }
+      else {
         o.set({ fill: c });
         o.setCoords(); // Update coordinates
       }
@@ -123,12 +121,13 @@ const ObjectControls = ({ fabricRef }: props) => {
       }
       // @ts-expect-error i am not sure if there is a new method to remove the selected currently getting a warning of not in type
       const group = new Group(activeObject?.removeAll(), {
-        cornerColor: "#2070ff",
-        cornerStyle: "circle",
-        padding: 1,
-        cornerDashArray: [2, 2],
+        cornerColor: "transparent",
+        cornerStrokeColor: "#5090ff",
+        cornerSize: 10,
+        padding: 2,
         transparentCorners: false,
-        cornerStrokeColor: "#2080ff",
+        strokeUniform: true,
+        objectCaching: true,
       });
       fabric.canvas.add(group);
       fabric.canvas.setActiveObject(group);
@@ -137,11 +136,24 @@ const ObjectControls = ({ fabricRef }: props) => {
       if (activeObject?.type !== "group") return;
       fabric.canvas.remove(activeObject);
 
-      // @ts-expect-error removeAll not in tyep
-      const selected = new ActiveSelection(activeObject?.removeAll(), {
-        canvas: fabric.canvas,
-      });
-      fabric.canvas.setActiveObject(selected);
+      if (activeObject instanceof Group) {
+        activeObject?.forEachObject((o) => {
+          fabricRef.current?.add(o)
+          o.set({
+            cornerColor: "transparent",
+            cornerStrokeColor: "#5090ff",
+            cornerSize: 10,
+            padding: 2,
+            transparentCorners: false,
+            strokeUniform: true,
+          })
+        })
+        const selected = new ActiveSelection(
+          activeObject?.removeAll(), {
+          canvas: fabric.canvas,
+        });
+        fabric.canvas.setActiveObject(selected);
+      }
       fabric.canvas.requestRenderAll();
     }
   };
