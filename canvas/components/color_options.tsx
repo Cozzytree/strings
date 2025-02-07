@@ -49,7 +49,7 @@ const ColorOptions = ({ color, fn }: props) => {
                   width: "1.6em",
                   height: "1.6em",
                 }}
-                className="rounded-sm border border-foreground/20"
+                className={`${c === color?.slice(0, color.length - 2) && "ring-4 ring-foreground"} border border-foreground/20 rounded-sm`}
               />
             ))}
           </div>

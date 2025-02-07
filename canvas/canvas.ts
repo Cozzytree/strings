@@ -1,21 +1,37 @@
 import * as fabric from "fabric";
-import { Mode } from "./types";
+import { BrushType, canvasMode, Mode } from "./types";
 import {
   DefaultRect,
   DefaultText,
   DraggableLine,
   DefaultEllipse,
+  DefaultTriangle,
+  defaultActiveSelectionStyle,
 } from "./defaultprop";
+import { Redo, Undo } from "./store/stack";
 
 interface canvasInterface {
   mode: Mode;
+  curr_fill: string;
+  curr_stroke: string;
   canvas: fabric.Canvas;
+  brush_stroke_color: string;
+
+  onNewObjewct: (obj: fabric.FabricObject) => void;
   setActiveObj: (v: fabric.FabricObject[] | []) => void;
   callback: (v: { mode: Mode; objs: fabric.FabricObject[] | [] }) => void;
 }
 
 class Canvas {
+  creating_NewObject: boolean = false
   mousedownPoint = { x: 0, y: 0 };
+  curr_fill: string;
+  curr_stroke: string;
+  brush_stroke_size = 3;
+  brush_stroke_color: string;
+  draw_brush: fabric.PencilBrush | fabric.SprayBrush | fabric.CircleBrush | null = null
+
+  onNewObjewct: (obj: fabric.FabricObject) => void;
   newShape: fabric.Object | null = null;
   callback: (v: { mode: Mode; objs: fabric.FabricObject[] | [] }) => void;
   setActiveObj: (v: fabric.FabricObject[] | []) => void;
@@ -25,12 +41,21 @@ class Canvas {
   isObjectsLocked = false;
   selector: fabric.ActiveSelection | null = null;
   copiedObjects?: fabric.FabricObject = undefined;
+  redo = new Redo();
+  undo = new Undo();
 
-  constructor({ canvas, mode, callback, setActiveObj }: canvasInterface) {
+  constructor({ canvas, mode, callback, setActiveObj, curr_fill, curr_stroke, brush_stroke_color, onNewObjewct }: canvasInterface) {
     this.canvas = canvas;
     this.mode = mode;
     this.callback = callback;
     this.setActiveObj = setActiveObj;
+    this.curr_fill = curr_fill;
+    this.curr_stroke = curr_stroke;
+    this.brush_stroke_color = brush_stroke_color;
+
+    this.onNewObjewct = onNewObjewct;
+
+    this.init()
   }
 
   _setActive() {
@@ -51,148 +76,222 @@ class Canvas {
     this.mode = mode;
   }
 
+  setBrushStroke(new_color: string) {
+    if (this.draw_brush == null) return;
+    this.draw_brush.color = new_color
+    this.brush_stroke_color = new_color;
+  }
+  setBrushWidth(new_width: number) {
+    if (this.draw_brush == null) return;
+    this.draw_brush.width = new_width;
+    this.brush_stroke_size = new_width;
+  }
+  setBrushType(brush_type: BrushType) {
+    if (this.draw_brush == null) return;
+
+    // Set the brush type to the new type
+    if (brush_type === "spray") {
+      this.draw_brush = new fabric.SprayBrush(this.canvas);
+    } else if (brush_type === "pencil") {
+      this.draw_brush = new fabric.PencilBrush(this.canvas);
+    } else if (brush_type === "circle") {
+      this.draw_brush = new fabric.CircleBrush(this.canvas);
+    }
+
+    this.draw_brush.color = this.brush_stroke_color;
+    this.draw_brush.width = this.brush_stroke_size;
+
+    this.canvas.freeDrawingBrush = this.draw_brush;
+  }
+
   setDrawBrush() {
     this.canvas.isDrawingMode = true;
 
-    const brush = new fabric.PencilBrush(this.canvas);
-    brush.width = 10;
-    brush.color = "green";
+    if (this.draw_brush == null) {
+      this.draw_brush = new fabric.PencilBrush(this.canvas);
+    }
+    this.draw_brush.width = this.brush_stroke_size;
+    this.draw_brush.color = this.brush_stroke_color;
 
-    this.canvas.freeDrawingBrush = brush;
+    this.canvas.freeDrawingBrush = this.draw_brush;
   }
 
-  mousedown() {
-    this.canvas.on("mouse:down", (e) => {
-      const { x, y } = e.scenePoint;
+  mousedown(e: fabric.TPointerEventInfo<fabric.TPointerEvent>) {
+    const { x, y } = e.scenePoint;
 
-      this.mousedownPoint = { x, y };
+    this.mousedownPoint = { x, y };
 
-      if (this.mode === "free") {
-        this.isDragging = true;
-        this.isObjectsLocked = true;
-        this.canvas.selection = false;
-        this.canvas.getObjects().forEach((obj) => {
-          obj.set({ selectable: false }); // Disable object selection
-        });
+    if (this.mode === "free") {
+      this.isDragging = true;
+      this.isObjectsLocked = true;
+      this.canvas.selection = false;
+      this.canvas.getObjects().forEach((obj) => {
+        obj.set({ selectable: false }); // Disable object selection
+      });
 
-        this.callback({ mode: "free", objs: [] });
-        return;
-      }
+      this.callback({ mode: "free", objs: [] });
+      return;
+    }
 
-      this.isObjectsLocked = false;
+    this.isObjectsLocked = false;
 
-      if (!this.canvas.selection) {
-        this.canvas.selection = true;
-      }
-
-      if (this.mode !== "default" && this.mode !== "draw") {
-        this.canvas.selection = false;
-        switch (this.mode) {
-          case "rect":
-            this.newShape = new DefaultRect({
-              top: y,
-              left: x,
-              width: 0,
-              height: 0,
-              strokeDashOffset: 2,
-            });
-            break;
-          case "ellipse":
-            this.newShape = new DefaultEllipse({
-              rx: 0,
-              ry: 0,
-              top: y,
-              left: x,
-              width: 0,
-              height: 0,
-            });
-            break;
-          case "line":
-            this.newShape = new DraggableLine([x, y, x, y], {});
-            break;
-          case "text":
-            let text = new DefaultText("", {
-              top: y,
-              left: x,
-              fill: "white",
-              stroke: "white",
-              fontFamily: "Arial",
-            });
-            text.enterEditing();
-            this.newShape = text;
-            break;
-        }
-        if (this.newShape) this.add(this.newShape);
-        return;
-      }
-
-      this._setActive();
-      // this.canvas.requestRenderAll();
-    });
-  }
-
-  mouseMove() {
-    this.canvas.on("mouse:move", (e) => {
-      const { x, y } = e.scenePoint;
-      if (this.isDragging) {
-        let vpt = this.canvas.viewportTransform;
-        vpt[4] += x - this.mousedownPoint.x;
-        vpt[5] += y - this.mousedownPoint.y;
-        this.canvas.requestRenderAll();
-      }
-
-      if (this.newShape) {
-        // const { x, y } = e.viewportPoint;
-
-        if (this.mode === "rect") {
-          this.newShape.set({
-            width: x - this.mousedownPoint.x,
-            height: y - this.mousedownPoint.y,
-          });
-        } else if (this.mode === "ellipse") {
-          this.newShape.set({
-            rx: Math.abs(x - this.mousedownPoint.x),
-            ry: Math.abs(y - this.mousedownPoint.y),
-          });
-        } else if (this.mode === "line") {
-          this.newShape.set({
-            x2: x, // Update x2 to the mouse x position
-            y2: y, // Update y2 to the mouse y position
-          });
-        }
-        this.canvas.renderCanvas(
-          this.canvas.getContext(),
-          this.canvas.getObjects()
-        );
-      }
-    });
-  }
-
-  mouseUp() {
-    this.canvas.on("mouse:up", (e) => {
-      this.isDragging = false;
-
-      if (this.mode === "free") {
-        return;
-      }
-
-      if (!this.isObjectsLocked) {
-        this.unlockObjects();
-      }
-
-      if (this.mode === "draw") return;
+    if (!this.canvas.selection) {
       this.canvas.selection = true;
-      if (this.newShape) {
-        // Select the newly created shape
-        this.canvas.setActiveObject(this.newShape);
-        this.canvas.renderAll();
-        this.mode = "default";
-      }
+    }
 
-      this.newShape = null;
-      this.callback({ mode: "default", objs: this.canvas.getObjects() });
-      this._setActive();
-    });
+    if (this.mode !== "default" && this.mode !== "draw") {
+      this.canvas.discardActiveObject();
+      this.canvas.set("selection", false)
+      switch (this.mode) {
+        case "rect":
+          this.newShape = new DefaultRect({
+            top: y,
+            left: x,
+            width: 0,
+            height: 0,
+            strokeDashOffset: 2,
+            fill: this.curr_fill,
+            stroke: this.curr_stroke,
+          });
+          break;
+        case "ellipse":
+          this.newShape = new DefaultEllipse({
+            rx: 0,
+            ry: 0,
+            top: y,
+            left: x,
+            width: 0,
+            height: 0,
+          });
+          break;
+        case "line":
+          this.newShape = new DraggableLine([x, y, x, y], {});
+          break;
+        case "text":
+          let text = new DefaultText("", {
+            top: y,
+            left: x,
+            fill: this.curr_fill,
+            stroke: this.curr_stroke,
+            fontFamily: "Arial",
+          });
+          text.enterEditing();
+          this.newShape = text;
+          break;
+        case "triangle":
+          this.newShape = new DefaultTriangle({
+            top: x,
+            left: y,
+            width: 0,
+            height: 0,
+            strokeWidth: 3,
+            stroke: "white",
+            fill: "transparent",
+          });
+          break;
+      }
+      this.creating_NewObject = true
+      if (this.newShape) this.add(this.newShape);
+
+      // insert to undo store
+      this.undo.insertObj({ inType: "fresh", objs: [this.newShape] });
+      return;
+    }
+
+    const objs = this.canvas.getActiveObject();
+    if (objs) {
+      if (objs instanceof fabric.ActiveSelection) {
+        const objstojson: fabric.FabricObject[] = []
+        objs.forEachObject((o) => {
+          const brect = o.getBoundingRect();
+          objstojson.push({ ...o.toJSON(), id: o.get("id"), left: brect.left, top: brect.top })
+        })
+        this.undo.insertObj({
+          inType: "default",
+          objs: objstojson,
+        })
+      } else {
+        this.undo.insertObj({
+          inType: "default",
+          objs: [{ ...objs.toJSON(), id: objs.get("id") }],
+        });
+      }
+    }
+    this._setActive();
+    // this.canvas.requestRenderAll();
+  }
+
+  mouseMove(e: fabric.TPointerEventInfo<fabric.TPointerEvent>) {
+    const { x, y } = e.scenePoint;
+    if (this.isDragging) {
+      const vpt = this.canvas.viewportTransform;
+      vpt[4] += x - this.mousedownPoint.x;
+      vpt[5] += y - this.mousedownPoint.y;
+      this.canvas.requestRenderAll();
+    }
+
+    if (this.newShape) {
+      // const { x, y } = e.viewportPoint;
+      if (this.mode === canvasMode.Rect || this.mode === canvasMode.Triangle) {
+        this.newShape.set({
+          left: x > this.mousedownPoint.x ? this.mousedownPoint.x : x,
+          top: y > this.mousedownPoint.y ? this.mousedownPoint.y : y,
+          width:
+            x > this.mousedownPoint.x
+              ? x - this.mousedownPoint.x
+              : this.mousedownPoint.x - x,
+          height:
+            y > this.mousedownPoint.y
+              ? y - this.mousedownPoint.y
+              : this.mousedownPoint.y - y,
+        });
+      } else if (this.mode === canvasMode.Ellipse) {
+        this.newShape.set({
+          rx: Math.abs(x - this.mousedownPoint.x),
+          ry: Math.abs(y - this.mousedownPoint.y),
+        });
+      } else if (this.mode === canvasMode.Line) {
+        this.newShape.set({
+          x2: x, // Update x2 to the mouse x position
+          y2: y, // Update y2 to the mouse y position
+        });
+      }
+      this.canvas.renderCanvas(
+        this.canvas.getContext(),
+        this.canvas.getObjects()
+      );
+    }
+  }
+
+  mouseUp(e: fabric.TPointerEventInfo<fabric.TPointerEvent>) {
+    this.isDragging = false;
+
+    if (this.mode === "free") {
+      return;
+    }
+
+    if (!this.isObjectsLocked) {
+      this.unlockObjects();
+    }
+
+    if (this.mode === "draw") return;
+    this.canvas.selection = true;
+    if (this.newShape) {
+      this.canvas.set("selection", true);
+      // Select the newly created shape
+
+      this.canvas.setActiveObject(this.newShape);
+      this.canvas.renderAll();
+      this.mode = "default";
+      this.creating_NewObject = false
+      this.canvas.fire("object:added", {
+        target: this.newShape,
+      })
+    }
+
+    this.newShape = null;
+    this.callback({ mode: "default", objs: this.canvas.getObjects() });
+    this._setActive();
   }
 
   unlockObjects() {
@@ -203,9 +302,11 @@ class Canvas {
   }
 
   windowResize() {
-    this.canvas.width = window.innerWidth;
-    this.canvas.height = window.innerHeight;
-    this.canvas.renderAll();
+    this.canvas.setDimensions({
+      width: window.innerWidth,
+      height: window.innerHeight,
+    });
+    this.canvas.requestRenderAll();
   }
 
   scroll() {
@@ -247,12 +348,22 @@ class Canvas {
   deleteObject() {
     const canvas = this.canvas;
     const objs = canvas.getActiveObjects();
+    const objsJson: fabric.FabricObject[] = [];
 
     if (!objs || objs.length === 0) return;
 
     objs.forEach((obj) => {
+      const box = obj.getBoundingRect();
+      objsJson.push({
+        ...obj.toJSON(), id: obj.get("id"), left: box.left, top: box.top,
+      })
       canvas.remove(obj);
     });
+
+    if (objsJson.length) {
+      this.undo.insertObj({ inType: "delete", objs: objsJson })
+      console.log(objsJson);
+    }
 
     canvas.discardActiveObject();
     canvas.requestRenderAll();
@@ -293,6 +404,122 @@ class Canvas {
     this.pasteObjects(objs);
   }
 
+  undoObjects() {
+    const val = this.undo._pushOut();
+    const objs: fabric.FabricObject[] = [];
+
+    switch (val?.inType) {
+      case "fresh":
+        val.objs.forEach((o) => {
+          objs.push(o);
+          this.canvas.remove(o);
+        });
+        break;
+      case "default":
+        this.canvas.discardActiveObject();
+        val.objs.forEach((v) => {
+          // Find a fabric object by a custom property (e.g., `id`)
+          const foundObject = this.canvas.getObjects().find((obj) => {
+            // @ts-expect-error id a custom property
+            return obj.get("id") == v?.id;
+          });
+          if (foundObject) {
+            objs.push({
+              ...foundObject.toJSON(),
+              id: foundObject.get("id"),
+            });
+
+            foundObject.set({ ...v });
+            foundObject.setCoords();
+          }
+        });
+        break;
+      case "delete":
+        this.canvas.discardActiveObject();
+        val.objs.forEach((o) => {
+          let s: fabric.FabricObject | null = null;
+          this.canvas.discardActiveObject();
+
+          switch (o.type) {
+            case "Rect":
+              s = new DefaultRect({ ...o });
+              break;
+            case "Ellipse":
+              s = new DefaultEllipse({ ...o })
+              break;
+            case "IText":
+              s = new DefaultText("", { ...o })
+          }
+          if (s) {
+            // @ts-expect-error id a custom property
+            s.set({ id: o?.id });
+            objs.push(s);
+            this.canvas.add(s);
+          }
+        });
+        break;
+    }
+
+    if (objs.length && val?.inType) {
+      this.redo.insertObj({ inType: val?.inType, objs: objs });
+
+      this.canvas.requestRenderAll();
+      this.callback({ mode: this.mode, objs: [] });
+    }
+  }
+
+  redoObjects() {
+    const val = this.redo._pushOut();
+    const objs: fabric.FabricObject[] = [];
+
+    switch (val?.inType) {
+      case "default":
+        this.canvas.discardActiveObject();
+        val.objs.forEach((v) => {
+          // Find a fabric object by a custom property (e.g., `id`)
+          const foundObject = this.canvas.getObjects().find((obj) => {
+
+            // @ts-expect-error custom property
+            return obj.get("id") == v?.id;
+
+          });
+          if (foundObject) {
+            objs.push({
+              ...foundObject.toJSON(),
+              id: foundObject.get("id"),
+            });
+
+            foundObject.set({ ...v });
+            this.canvas.setActiveObject(foundObject);
+          }
+        });
+        break;
+      case "fresh":
+        val.objs.forEach((o) => {
+          let s: fabric.FabricObject | null = null;
+          this.canvas.discardActiveObject();
+          switch (o.type) {
+            case canvasMode.Rect:
+              s = new DefaultRect({ ...o });
+              s.set({ id: o.get("id") });
+              break;
+          }
+          if (s) {
+            objs.push(s);
+            this.canvas.add(s);
+          }
+        });
+        // this.canvas.setActiveObject(s);
+        break;
+    }
+
+    if (objs.length && val?.inType) {
+      this.undo.insertObj({ inType: val.inType, objs });
+      this.canvas.requestRenderAll();
+      this.callback({ mode: this.mode, objs: [] });
+    }
+  }
+
   async documentKeyDown(e: KeyboardEvent) {
     if (e.ctrlKey) {
       if (e.key === "d") {
@@ -308,6 +535,7 @@ class Canvas {
           cornerSize: 10,
           padding: 3,
           transparentCorners: false,
+          borderDashArray: [3]
         });
 
         this.canvas.setActiveObject(s);
@@ -317,17 +545,51 @@ class Canvas {
         this.copiedObjects = await this.copyObjects();
       } else if (e.key === "v") {
         this.pasteObjects(this.copiedObjects);
+      } else if (e.key === "z") {
+        e.preventDefault();
+        this.undoObjects();
+      } else if (e.key === "y") {
+        this.redoObjects();
       }
+    } else if (e.key === "Delete") {
+      this.deleteObject();
     }
   }
 
-  dblClick() {}
+  dblClick() { }
 
   init() {
-    this.mousedown();
-    this.mouseMove();
-    this.mouseUp();
     this.scroll();
+
+    this.canvas.on("selection:created", () => {
+      const selected = this.canvas.getActiveObject()
+      if (selected?.type === "activeselection") {
+        selected.set({
+          ...defaultActiveSelectionStyle
+        })
+      }
+    })
+    this.canvas.on("object:added", (e) => {
+      // callback for new object
+      if (this.creating_NewObject) return
+      this.onNewObjewct(
+        { ...e.target?.toJSON(), id: e.target.get("id") }
+      )
+
+      if (e.target.type === "path") {
+        e.target.set({
+          cornerColor: "transparent",
+          cornerStrokeColor: "#5090ff",
+          cornerSize: 10,
+          padding: 2,
+          transparentCorners: false,
+          strokeUniform: true,
+        });
+      }
+    })
+    this.canvas.on("mouse:down", this.mousedown.bind(this))
+    this.canvas.on("mouse:move", this.mouseMove.bind(this))
+    this.canvas.on("mouse:up", this.mouseUp.bind(this))
     window.addEventListener("resize", this.windowResize.bind(this));
     document.addEventListener("keydown", this.documentKeyDown.bind(this));
   }

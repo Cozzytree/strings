@@ -15,8 +15,8 @@ const dots = [
   () => {
     return (
       <div className="w-full h-full flex justify-center items-center gap-[2px]">
-        {Array.from({ length: 4 }).map((v) => (
-          <span className="w-[3px] h-1 bg-foreground/70" />
+        {Array.from({ length: 4 }).map((v, i) => (
+          <span key={i} className="w-[3px] h-1 bg-foreground/70" />
         ))}
       </div>
     );

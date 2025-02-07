@@ -9,7 +9,18 @@ import {
   Polyline,
   Rect,
   RectProps,
+  Triangle,
 } from "fabric";
+
+const defaultActiveSelectionStyle: Partial<FabricObjectProps> = {
+  cornerStyle: "circle",
+  cornerSize: 10,
+  transparentCorners: false,
+  borderDashArray: [3],
+  cornerColor: "transparent",
+  cornerStrokeColor: "#5090ff",
+  padding: 2,
+}
 
 class DefaultRect extends Rect {
   constructor(obj: Partial<RectProps>) {
@@ -22,15 +33,19 @@ class DefaultRect extends Rect {
       ry: 5,
       // centeredScaling: true,
       fill: "transparent",
-      cornerStyle: "circle",
-      cornerColor: "#5090ff",
+      cornerColor: "transparent",
       cornerStrokeColor: "#5090ff",
       cornerSize: 10,
-      padding: 4,
+      padding: 2,
       opacity: 1,
       transparentCorners: false,
+      strokeUniform: true,
+      objectCaching: true,
       // strokeDashArray: [10, 10],
       ...obj,
+    });
+    this.set({ id: `shape:${String(Date.now())}` });
+    this.on("mousedown", (e) => {
     });
     // this.customControl();
   }
@@ -69,14 +84,17 @@ class DefaultEllipse extends Ellipse {
       stroke: "white",
       strokeWidth: 4,
       fill: "transparent",
-      cornerStyle: "circle",
-      cornerColor: "#5090ff",
+      cornerColor: "transparent",
       cornerStrokeColor: "#5090ff",
       cornerSize: 10,
-      padding: 4,
+      padding: 2,
       transparentCorners: false,
+      strokeUniform: true,
+      objectCaching: true,
+      centeredRotation: true,
       ...obj,
     });
+    this.set({ id: `shape:${String(Date.now())}` });
   }
 }
 
@@ -90,11 +108,13 @@ class DefaultText extends IText {
       textAlign: "left",
       fill: "transparent",
       cornerStyle: "circle",
-      cornerColor: "#5090ff",
+      cornerColor: "transparent",
       transparentCorners: false,
       cornerStrokeColor: "#5090ff",
+      strokeUniform: true,
       ...obj,
     });
+    this.set({ id: `shape:${String(Date.now())}` });
   }
 }
 
@@ -105,32 +125,40 @@ class DraggableLine extends Line {
   ) {
     super(points, options);
     this.hasControls = true;
-    this.padding = 6;
+    this.padding = 2;
     this.stroke = "white"; // Set stroke color
     this.strokeWidth = 2; // Set stroke width
     this.selectable = true; // Make the line selectable
     this.hasControls = true; // Enable controls for resizing
     this.transparentCorners = false; // Make the corner points visible
-    this.cornerStyle = "circle";
-    this.cornerColor = "#5090ff";
+    this.cornerColor = "transparent";
     this.cornerStrokeColor = "#5090ff";
     this.cornerSize = 10;
     this.opacity = 1;
-
+    this.hasControls = true;
+    this.strokeUniform = true;
+    this.set({ id: `shape:${String(Date.now())}` });
     this._createControls();
   }
 
   _createControls() {
     this.controls.start = new Control({
-      render: (ctx) => {
-        const start = this.get("aCoords");
+      mouseDownHandler: (e) => {
+        console.log(e);
+      },
+      actionHandler: (e, t, x, y) => {
+        console.log(e);
+        return true;
+      },
+      render: (ctx, left, top, _, obj) => {
         ctx.save();
         // Apply any transformations if necessary, such as scaling or rotation
         ctx.fillStyle = this.stroke ? (this.stroke as string) : "white";
 
         // Draw the arc (circle) at the start point
         ctx.beginPath();
-        ctx.arc(start.tl.x, start.tl.y, 5, 0, Math.PI * 2, false);
+
+        ctx.arc(left, top, 5, 0, Math.PI * 2, false);
         ctx.fill();
         ctx.closePath();
         ctx.restore();
@@ -138,14 +166,13 @@ class DraggableLine extends Line {
     });
     this.controls.end = new Control({
       render: (ctx) => {
-        const end = this.get("aCoords");
         ctx.save();
         // Apply any transformations if necessary, such as scaling or rotation
         ctx.fillStyle = this.stroke ? (this.stroke as string) : "white";
 
         // Draw the arc (circle) at the end point
         ctx.beginPath();
-        ctx.arc(end.br.x, end.br.y, 5, 0, Math.PI * 2, false);
+        ctx.arc(this.x2, this.y2, 5, 0, Math.PI * 2, false);
         ctx.fill();
         ctx.closePath();
         ctx.restore();
@@ -162,12 +189,28 @@ class DefaultPolygon extends Polyline {
     super(points, {
       ...props,
       cornerStyle: "circle",
-      cornerColor: "#5090ff",
+      cornerColor: "transparent",
       cornerStrokeColor: "#5090ff",
       cornerSize: 10,
       padding: 4,
       transparentCorners: false,
     });
+    this.set({ id: `shape:${String(Date.now())}` });
+  }
+}
+
+class DefaultTriangle extends Triangle {
+  constructor(props: Partial<FabricObjectProps>) {
+    super({
+      cornerColor: "transparent",
+      cornerStrokeColor: "#5090ff",
+      cornerSize: 10,
+      padding: 2,
+      transparentCorners: false,
+      strokeUniform: true,
+      ...props,
+    });
+    this.set({ id: `shape:${String(Date.now())}` });
   }
 }
 
@@ -176,5 +219,7 @@ export {
   DefaultPolygon,
   DefaultEllipse,
   DefaultText,
+  DefaultTriangle,
   DraggableLine,
+  defaultActiveSelectionStyle,
 };
