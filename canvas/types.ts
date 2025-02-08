@@ -1,28 +1,29 @@
 export type Mode =
-  | "default"
-  | "free"
-  | "draw"
-  | "rect"
-  | "ellipse"
-  | "text"
-  | "line"
-  | "triangle"
-  | "image";
+   | "default"
+   | "free"
+   | "draw"
+   | "rect"
+   | "ellipse"
+   | "text"
+   | "line"
+   | "triangle"
+   | "image";
 
 export type BrushType =
-  "spray"
-  | "pencil"
-  | "circle"
+   "spray"
+   | "pencil"
+   | "circle"
 
 
 export enum canvasMode {
-  Default = "default",
-  Free = "free",
-  Draw = "draw",
-  Rect = "rect",
-  Ellipse = "ellipse",
-  Text = "text",
-  Line = "line",
-  Triangle = "triangle",
-  Image = "image"
+   Default = "default",
+   Free = "free",
+   Draw = "draw",
+   Rect = "rect",
+   Ellipse = "ellipse",
+   Text = "i-text",
+   Line = "line",
+   Triangle = "triangle",
+   Image = "image",
+   Circle = "circle"
 }
